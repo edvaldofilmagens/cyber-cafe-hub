@@ -2,212 +2,299 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Coffee, Sandwich, Wifi, Printer } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  ShoppingCart,
+  UtensilsCrossed,
+  Monitor,
+  Globe,
+  Smartphone,
+  CreditCard,
+  Banknote,
+  QrCode,
+  Printer,
+  Check,
+  X,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useOrders } from "@/hooks/useOrders";
+import { OrderItemsList } from "@/components/OrderItemsList";
+import { Order, PaymentMethod } from "@/types/order";
 import { printReceipt } from "@/utils/printReceipt";
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  category: string;
-  icon: React.ElementType;
-}
+const sourceIcons: Record<string, React.ElementType> = {
+  mesa: UtensilsCrossed,
+  computador: Monitor,
+  balcao: ShoppingCart,
+  mobile: Smartphone,
+};
 
-interface CartItem extends Product {
-  qty: number;
-}
+const sourceLabels: Record<string, string> = {
+  mesa: "Mesa",
+  computador: "Computador",
+  balcao: "Balcão",
+  mobile: "Pedido Móvel",
+};
 
-const products: Product[] = [
-  { id: 1, name: "Café Expresso", price: 7.0, category: "Bebidas", icon: Coffee },
-  { id: 2, name: "Café com Leite", price: 8.5, category: "Bebidas", icon: Coffee },
-  { id: 3, name: "Cappuccino", price: 10.0, category: "Bebidas", icon: Coffee },
-  { id: 4, name: "Suco Natural", price: 9.0, category: "Bebidas", icon: Coffee },
-  { id: 5, name: "Água Mineral", price: 4.0, category: "Bebidas", icon: Coffee },
-  { id: 6, name: "Pão de Queijo", price: 4.5, category: "Lanches", icon: Sandwich },
-  { id: 7, name: "Coxinha", price: 6.0, category: "Lanches", icon: Sandwich },
-  { id: 8, name: "Misto Quente", price: 8.0, category: "Lanches", icon: Sandwich },
-  { id: 9, name: "Bolo Fatia", price: 7.5, category: "Lanches", icon: Sandwich },
-  { id: 10, name: "Voucher 1h Wi-Fi", price: 5.0, category: "Internet", icon: Wifi },
-  { id: 11, name: "Voucher 2h Wi-Fi", price: 10.0, category: "Internet", icon: Wifi },
-  { id: 12, name: "Voucher 5h Wi-Fi", price: 20.0, category: "Internet", icon: Wifi },
-  { id: 13, name: "Voucher 10h Wi-Fi", price: 35.0, category: "Internet", icon: Wifi },
+const paymentMethods: { value: PaymentMethod; label: string; icon: React.ElementType }[] = [
+  { value: "dinheiro", label: "Dinheiro", icon: Banknote },
+  { value: "pix", label: "PIX", icon: QrCode },
+  { value: "cartao_credito", label: "Crédito", icon: CreditCard },
+  { value: "cartao_debito", label: "Débito", icon: CreditCard },
 ];
 
-const categories = ["Todos", "Bebidas", "Lanches", "Internet"];
-
 const PDV = () => {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Todos");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const { toast } = useToast();
+  const orderHook = useOrders();
 
-  const filtered = products.filter((p) => {
-    const matchCat = activeCategory === "Todos" || p.category === activeCategory;
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const readyOrders = orderHook.getReadyForPayment();
+  const openOrders = orderHook.getOpenOrders().filter((o) => o.status === "aberta");
+  const closedToday = orderHook.getClosedToday();
+  const totalToday = closedToday.reduce((s, o) => s + o.total, 0);
 
-  const addToCart = (product: Product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.id === product.id);
-      if (existing) {
-        return prev.map((i) => (i.id === product.id ? { ...i, qty: i.qty + 1 } : i));
-      }
-      return [...prev, { ...product, qty: 1 }];
+  const selectedOrder = selectedOrderId
+    ? [...readyOrders, ...openOrders].find((o) => o.id === selectedOrderId) ?? null
+    : null;
+
+  const handleFinalize = () => {
+    if (!selectedOrder || !paymentMethod) return;
+    const pm = paymentMethod as PaymentMethod;
+    orderHook.finalize(selectedOrder.id, pm);
+    printReceipt({
+      items: selectedOrder.items,
+      total: selectedOrder.total,
+      mesa: selectedOrder.source === "mesa" ? selectedOrder.sourceId : undefined,
     });
+    toast({
+      title: "Venda finalizada!",
+      description: `${selectedOrder.sourceLabel} — R$ ${selectedOrder.total.toFixed(2)} (${pm})`,
+    });
+    setSelectedOrderId(null);
+    setPaymentMethod("");
   };
 
-  const updateQty = (id: number, delta: number) => {
-    setCart((prev) =>
-      prev
-        .map((i) => (i.id === id ? { ...i, qty: i.qty + delta } : i))
-        .filter((i) => i.qty > 0)
-    );
+  const handleCancel = () => {
+    if (!selectedOrder) return;
+    orderHook.cancel(selectedOrder.id);
+    toast({ title: "Comanda cancelada", description: selectedOrder.sourceLabel });
+    setSelectedOrderId(null);
   };
-
-  const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
   const handlePrint = () => {
-    if (cart.length === 0) return;
-    printReceipt({ items: cart, total });
+    if (!selectedOrder) return;
+    printReceipt({
+      items: selectedOrder.items,
+      total: selectedOrder.total,
+      mesa: selectedOrder.source === "mesa" ? selectedOrder.sourceId : undefined,
+    });
   };
 
-  const finalize = () => {
-    if (cart.length === 0) return;
-    printReceipt({ items: cart, total });
-    toast({
-      title: "Venda Finalizada!",
-      description: `Total: R$ ${total.toFixed(2)} — ${cart.length} item(ns)`,
-    });
-    setCart([]);
-  };
+  const SourceIcon = selectedOrder ? sourceIcons[selectedOrder.source] || ShoppingCart : ShoppingCart;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold">Ponto de Venda</h1>
-        <p className="text-sm text-muted-foreground">Registre vendas de café, lanches e vouchers</p>
+        <p className="text-sm text-muted-foreground">Fechamento de comandas e pagamentos</p>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-warning/10">
+              <ShoppingCart className="h-6 w-6 text-warning" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Aguardando Pagamento</p>
+              <p className="font-heading text-2xl font-bold">{readyOrders.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <Globe className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Comandas Abertas</p>
+              <p className="font-heading text-2xl font-bold">{openOrders.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
+              <Check className="h-6 w-6 text-accent" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Vendas Hoje</p>
+              <p className="font-heading text-2xl font-bold">R$ {totalToday.toFixed(2)}</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Products */}
+        {/* Orders list */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Buscar produto..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2">
-              {categories.map((cat) => (
-                <Button
-                  key={cat}
-                  variant={activeCategory === cat ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActiveCategory(cat)}
-                >
-                  {cat}
-                </Button>
-              ))}
-            </div>
-          </div>
+          {readyOrders.length > 0 && (
+            <>
+              <h2 className="font-heading text-lg font-semibold">Aguardando Pagamento</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {readyOrders.map((order) => {
+                  const Icon = sourceIcons[order.source] || ShoppingCart;
+                  return (
+                    <Card
+                      key={order.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedOrderId === order.id ? "ring-2 ring-primary" : ""
+                      } border-yellow-400`}
+                      onClick={() => setSelectedOrderId(order.id)}
+                    >
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-warning/10">
+                          <Icon className="h-6 w-6 text-warning" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{order.sourceLabel}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sourceLabels[order.source]} — {order.items.length} itens
+                          </p>
+                        </div>
+                        <span className="font-heading font-bold text-primary">
+                          R$ {order.total.toFixed(2)}
+                        </span>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {filtered.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => addToCart(p)}
-                className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-card-foreground transition-all hover:border-primary hover:shadow-md active:scale-95"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <p.icon className="h-5 w-5 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-center leading-tight">{p.name}</span>
-                <span className="font-heading font-bold text-primary">
-                  R$ {p.price.toFixed(2)}
-                </span>
-              </button>
-            ))}
-          </div>
+          {openOrders.length > 0 && (
+            <>
+              <h2 className="font-heading text-lg font-semibold mt-6">Comandas Abertas</h2>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {openOrders.map((order) => {
+                  const Icon = sourceIcons[order.source] || ShoppingCart;
+                  return (
+                    <Card
+                      key={order.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedOrderId === order.id ? "ring-2 ring-primary" : ""
+                      }`}
+                      onClick={() => setSelectedOrderId(order.id)}
+                    >
+                      <CardContent className="flex items-center gap-4 p-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{order.sourceLabel}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {sourceLabels[order.source]} — {order.items.length} itens
+                          </p>
+                        </div>
+                        <span className="font-heading font-bold text-muted-foreground">
+                          R$ {order.total.toFixed(2)}
+                        </span>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {readyOrders.length === 0 && openOrders.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <ShoppingCart className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <p className="font-heading text-lg font-semibold text-muted-foreground">Nenhuma comanda pendente</p>
+                <p className="text-sm text-muted-foreground">Comandas abertas nas Mesas e Computadores aparecerão aqui.</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Cart */}
+        {/* Payment panel */}
         <Card className="h-fit sticky top-6">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <ShoppingCart className="h-5 w-5 text-primary" />
-              Carrinho
-              {cart.length > 0 && (
-                <Badge className="ml-auto">{cart.reduce((s, i) => s + i.qty, 0)}</Badge>
-              )}
+              <CreditCard className="h-5 w-5 text-primary" />
+              Pagamento
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            {cart.length === 0 ? (
+          <CardContent className="space-y-4">
+            {!selectedOrder ? (
               <p className="text-sm text-muted-foreground text-center py-8">
-                Carrinho vazio
+                Selecione uma comanda para pagamento
               </p>
             ) : (
               <>
-                {cart.map((item) => (
-                  <div key={item.id} className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        R$ {item.price.toFixed(2)} × {item.qty}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQty(item.id, -1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-6 text-center text-sm font-medium">{item.qty}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQty(item.id, 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => updateQty(item.id, -item.qty)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Separator />
-                <div className="flex items-center justify-between py-2">
-                  <span className="font-heading font-bold text-lg">Total</span>
-                  <span className="font-heading font-bold text-lg text-primary">
-                    R$ {total.toFixed(2)}
-                  </span>
+                <div className="flex items-center gap-2 mb-2">
+                  <SourceIcon className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{selectedOrder.sourceLabel}</span>
+                  <Badge variant="secondary" className="ml-auto">
+                    {sourceLabels[selectedOrder.source]}
+                  </Badge>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <Button variant="outline" onClick={() => setCart([])}>
-                    Limpar
+
+                <OrderItemsList
+                  items={selectedOrder.items}
+                  total={selectedOrder.total}
+                  readOnly
+                />
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Forma de Pagamento</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {paymentMethods.map((pm) => (
+                      <Button
+                        key={pm.value}
+                        variant={paymentMethod === pm.value ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setPaymentMethod(pm.value)}
+                        className="gap-1"
+                      >
+                        <pm.icon className="h-4 w-4" />
+                        {pm.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-2">
+                  <Button variant="ghost" size="sm" onClick={handleCancel} className="text-destructive gap-1">
+                    <X className="h-4 w-4" />
+                    Cancelar
                   </Button>
-                  <Button variant="outline" onClick={handlePrint} className="gap-1">
+                  <Button variant="outline" size="sm" onClick={handlePrint} className="gap-1">
                     <Printer className="h-4 w-4" />
+                    Cupom
                   </Button>
-                  <Button onClick={finalize}>Finalizar</Button>
+                  <Button
+                    size="sm"
+                    disabled={!paymentMethod}
+                    onClick={handleFinalize}
+                    className="gap-1"
+                  >
+                    <Check className="h-4 w-4" />
+                    Pagar
+                  </Button>
                 </div>
               </>
             )}

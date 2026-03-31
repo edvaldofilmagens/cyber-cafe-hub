@@ -8,13 +8,17 @@ interface ReceiptData {
   items: ReceiptItem[];
   total: number;
   mesa?: number | null;
+  computador?: number | null;
+  paymentMethod?: string | null;
   date?: Date;
 }
 
-export const printReceipt = ({ items, total, mesa, date }: ReceiptData) => {
+export const printReceipt = ({ items, total, mesa, computador, paymentMethod, date }: ReceiptData) => {
   const now = date ?? new Date();
   const dateStr = now.toLocaleDateString("pt-BR");
   const timeStr = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  const origin = mesa ? `Mesa: ${mesa}` : computador ? `Computador: PC-0${computador}` : "Balcão";
 
   const lines = [
     "========================================",
@@ -22,7 +26,8 @@ export const printReceipt = ({ items, total, mesa, date }: ReceiptData) => {
     "        Cyber Café & Internet",
     "========================================",
     `Data: ${dateStr}  Hora: ${timeStr}`,
-    mesa ? `Mesa: ${mesa}` : "",
+    origin,
+    paymentMethod ? `Pagamento: ${paymentMethod}` : "",
     "----------------------------------------",
     "ITEM                  QTD   VALOR",
     "----------------------------------------",
