@@ -12,6 +12,7 @@ import Computadores from "./pages/Computadores";
 import Estoque from "./pages/Estoque";
 import Financeiro from "./pages/Financeiro";
 import Vouchers from "./pages/Vouchers";
+import Mesas from "./pages/Mesas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const AppRoutes = () => {
       <Route path="/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute adminOnly><Financeiro /></ProtectedRoute>} />
       <Route path="/vouchers" element={<ProtectedRoute adminOnly><Vouchers /></ProtectedRoute>} />
+      <Route path="/mesas" element={<ProtectedRoute><Mesas /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

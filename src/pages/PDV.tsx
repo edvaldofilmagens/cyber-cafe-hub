@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Coffee, Sandwich, Wifi } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Coffee, Sandwich, Wifi, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { printReceipt } from "@/utils/printReceipt";
 
 interface Product {
   id: number;
@@ -69,8 +70,14 @@ const PDV = () => {
 
   const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
+  const handlePrint = () => {
+    if (cart.length === 0) return;
+    printReceipt({ items: cart, total });
+  };
+
   const finalize = () => {
     if (cart.length === 0) return;
+    printReceipt({ items: cart, total });
     toast({
       title: "Venda Finalizada!",
       description: `Total: R$ ${total.toFixed(2)} — ${cart.length} item(ns)`,
@@ -193,9 +200,12 @@ const PDV = () => {
                     R$ {total.toFixed(2)}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" onClick={() => setCart([])}>
                     Limpar
+                  </Button>
+                  <Button variant="outline" onClick={handlePrint} className="gap-1">
+                    <Printer className="h-4 w-4" />
                   </Button>
                   <Button onClick={finalize}>Finalizar</Button>
                 </div>

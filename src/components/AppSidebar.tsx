@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   LogOut,
   Wifi,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ import { NavLink, useLocation } from "react-router-dom";
 const adminLinks = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/pdv", icon: ShoppingCart, label: "PDV" },
+  { to: "/mesas", icon: UtensilsCrossed, label: "Mesas" },
   { to: "/computadores", icon: Monitor, label: "Computadores" },
   { to: "/estoque", icon: Package, label: "Estoque" },
   { to: "/financeiro", icon: Wallet, label: "Financeiro" },
@@ -23,6 +25,7 @@ const adminLinks = [
 
 const funcLinks = [
   { to: "/pdv", icon: ShoppingCart, label: "PDV" },
+  { to: "/mesas", icon: UtensilsCrossed, label: "Mesas" },
 ];
 
 export const AppSidebar = () => {
