@@ -1,28 +1,26 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Monitor, ShoppingCart, Users, Wifi, TrendingUp, Clock } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
-
-const stats = [
-  { label: "Vendas Hoje", value: "R$ 347,50", icon: TrendingUp, change: "+12%" },
-  { label: "Clientes Ativos", value: "8", icon: Users, change: "+3" },
-  { label: "Vouchers Vendidos", value: "23", icon: Wifi, change: "hoje" },
-  { label: "Pedidos PDV", value: "15", icon: ShoppingCart, change: "hoje" },
-];
-
-const computers = [
-  { id: 1, name: "PC-01", status: "em_uso", user: "João Silva", timeUsed: 45, timeTotal: 120 },
-  { id: 2, name: "PC-02", status: "livre", user: null, timeUsed: 0, timeTotal: 0 },
-];
-
-const recentSales = [
-  { id: 1, item: "Café Expresso", qty: 2, total: "R$ 14,00", time: "14:32" },
-  { id: 2, item: "Voucher 2h Wi-Fi", qty: 1, total: "R$ 10,00", time: "14:15" },
-  { id: 3, item: "Pão de Queijo", qty: 3, total: "R$ 13,50", time: "13:48" },
-  { id: 4, item: "Voucher 5h Wi-Fi", qty: 1, total: "R$ 20,00", time: "13:20" },
-];
+import { Monitor, ShoppingCart, UtensilsCrossed, Wifi, TrendingUp, Clock, CreditCard } from "lucide-react";
+import { useOrders } from "@/hooks/useOrders";
 
 const Index = () => {
+  const orders = useOrders();
+
+  const openOrders = orders.getOpenOrders();
+  const closedToday = orders.getClosedToday();
+  const totalToday = closedToday.reduce((s, o) => s + o.total, 0);
+
+  const mesasOcupadas = openOrders.filter((o) => o.source === "mesa").length;
+  const pcsEmUso = openOrders.filter((o) => o.source === "computador").length;
+  const aguardandoPagamento = openOrders.filter((o) => o.status === "aguardando_pagamento").length;
+
+  const stats = [
+    { label: "Vendas Hoje", value: `R$ ${totalToday.toFixed(2)}`, icon: TrendingUp, change: `${closedToday.length} vendas` },
+    { label: "Mesas Ocupadas", value: String(mesasOcupadas), icon: UtensilsCrossed, change: "de 4" },
+    { label: "PCs em Uso", value: String(pcsEmUso), icon: Monitor, change: "de 2" },
+    { label: "Aguardando Pagamento", value: String(aguardandoPagamento), icon: CreditCard, change: "comandas" },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -51,58 +49,42 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Computers */}
+        {/* Open orders */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
-              <Monitor className="h-5 w-5 text-primary" />
-              Computadores
+              <ShoppingCart className="h-5 w-5 text-primary" />
+              Comandas Ativas
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {computers.map((pc) => (
-              <div
-                key={pc.id}
-                className="flex items-center gap-4 rounded-xl border p-4"
-              >
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                    pc.status === "em_uso" ? "bg-primary/10" : "bg-success/10"
-                  }`}
-                >
-                  <Monitor
-                    className={`h-5 w-5 ${
-                      pc.status === "em_uso" ? "text-primary" : "text-success"
-                    }`}
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium">{pc.name}</span>
+          <CardContent className="space-y-3">
+            {openOrders.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma comanda aberta</p>
+            ) : (
+              openOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div>
+                    <p className="text-sm font-medium">{order.sourceLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.items.length} itens • {order.status === "aguardando_pagamento" ? "Aguardando pgto" : "Aberta"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-heading font-semibold text-sm">R$ {order.total.toFixed(2)}</span>
                     <Badge
-                      variant={pc.status === "em_uso" ? "default" : "secondary"}
-                      className={pc.status === "livre" ? "bg-success text-success-foreground" : ""}
+                      variant="secondary"
+                      className={`ml-2 text-xs ${order.status === "aguardando_pagamento" ? "bg-warning/20 text-warning" : ""}`}
                     >
-                      {pc.status === "em_uso" ? "Em uso" : "Livre"}
+                      {order.source}
                     </Badge>
                   </div>
-                  {pc.status === "em_uso" ? (
-                    <>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {pc.user} — {pc.timeUsed}min / {pc.timeTotal}min
-                      </p>
-                      <Progress value={(pc.timeUsed / pc.timeTotal) * 100} className="h-1.5" />
-                    </>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Disponível para uso</p>
-                  )}
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
-        {/* Recent Sales */}
+        {/* Recent closed */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -110,23 +92,24 @@ const Index = () => {
               Vendas Recentes
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentSales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="flex items-center justify-between rounded-lg border p-3"
-                >
+          <CardContent className="space-y-3">
+            {closedToday.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhuma venda registrada hoje</p>
+            ) : (
+              closedToday.slice(-5).reverse().map((order) => (
+                <div key={order.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div>
-                    <p className="text-sm font-medium">{sale.item}</p>
+                    <p className="text-sm font-medium">{order.sourceLabel}</p>
                     <p className="text-xs text-muted-foreground">
-                      Qtd: {sale.qty} • {sale.time}
+                      {order.paymentMethod} • {order.closedAt ? new Date(order.closedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : ""}
                     </p>
                   </div>
-                  <span className="font-heading font-semibold text-sm">{sale.total}</span>
+                  <span className="font-heading font-semibold text-sm text-accent">
+                    R$ {order.total.toFixed(2)}
+                  </span>
                 </div>
-              ))}
-            </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
