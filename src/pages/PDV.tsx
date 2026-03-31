@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Plus, Minus, Trash2, Search, Coffee, Sandwich, Wifi } from "lucide-react";
+import { ShoppingCart, Plus, Minus, Trash2, Search, Coffee, Sandwich, Wifi, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { printReceipt } from "@/utils/printReceipt";
 
 interface Product {
   id: number;
