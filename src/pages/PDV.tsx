@@ -200,9 +200,12 @@ const PDV = () => {
                     R$ {total.toFixed(2)}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" onClick={() => setCart([])}>
                     Limpar
+                  </Button>
+                  <Button variant="outline" onClick={handlePrint} className="gap-1">
+                    <Printer className="h-4 w-4" />
                   </Button>
                   <Button onClick={finalize}>Finalizar</Button>
                 </div>
