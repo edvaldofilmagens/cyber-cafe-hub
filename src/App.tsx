@@ -12,6 +12,7 @@ import Computadores from "./pages/Computadores";
 import Estoque from "./pages/Estoque";
 import Financeiro from "./pages/Financeiro";
 import Vouchers from "./pages/Vouchers";
+import Mesas from "./pages/Mesas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
