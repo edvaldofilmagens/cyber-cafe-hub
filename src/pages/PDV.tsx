@@ -70,8 +70,14 @@ const PDV = () => {
 
   const total = cart.reduce((sum, i) => sum + i.price * i.qty, 0);
 
+  const handlePrint = () => {
+    if (cart.length === 0) return;
+    printReceipt({ items: cart, total });
+  };
+
   const finalize = () => {
     if (cart.length === 0) return;
+    printReceipt({ items: cart, total });
     toast({
       title: "Venda Finalizada!",
       description: `Total: R$ ${total.toFixed(2)} — ${cart.length} item(ns)`,
