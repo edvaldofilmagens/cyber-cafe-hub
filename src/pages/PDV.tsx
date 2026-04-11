@@ -3,18 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   ShoppingCart,
   UtensilsCrossed,
   Monitor,
-  Globe,
   Smartphone,
   CreditCard,
   Banknote,
@@ -22,6 +22,8 @@ import {
   Printer,
   Check,
   X,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
@@ -50,9 +52,17 @@ const paymentMethods: { value: PaymentMethod; label: string; icon: React.Element
   { value: "cartao_debito", label: "Débito", icon: CreditCard },
 ];
 
+const paymentLabels: Record<string, string> = {
+  dinheiro: "Dinheiro",
+  pix: "PIX",
+  cartao_credito: "Crédito",
+  cartao_debito: "Débito",
+};
+
 const PDV = () => {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [showReport, setShowReport] = useState(false);
   const { toast } = useToast();
   const orderHook = useOrders();
 
@@ -60,6 +70,27 @@ const PDV = () => {
   const openOrders = orderHook.getOpenOrders().filter((o) => o.status === "aberta");
   const closedToday = orderHook.getClosedToday();
   const totalToday = closedToday.reduce((s, o) => s + o.total, 0);
+
+  // Daily report data
+  const byPaymentMethod: Record<string, number> = {};
+  const bySource: Record<string, number> = {};
+  const productMap: Record<string, { name: string; qty: number; total: number }> = {};
+
+  closedToday.forEach((o) => {
+    const pm = o.paymentMethod || "outros";
+    byPaymentMethod[pm] = (byPaymentMethod[pm] || 0) + o.total;
+    bySource[o.source] = (bySource[o.source] || 0) + o.total;
+    o.items.forEach((i) => {
+      const key = String(i.productId);
+      if (!productMap[key]) productMap[key] = { name: i.name, qty: 0, total: 0 };
+      productMap[key].qty += i.qty;
+      productMap[key].total += i.price * i.qty;
+    });
+  });
+
+  const topProducts = Object.values(productMap)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 10);
 
   const selectedOrder = selectedOrderId
     ? [...readyOrders, ...openOrders].find((o) => o.id === selectedOrderId) ?? null
@@ -76,7 +107,7 @@ const PDV = () => {
     });
     toast({
       title: "Venda finalizada!",
-      description: `${selectedOrder.sourceLabel} — R$ ${selectedOrder.total.toFixed(2)} (${pm})`,
+      description: `${selectedOrder.sourceLabel} — R$ ${selectedOrder.total.toFixed(2)} (${paymentLabels[pm]})`,
     });
     setSelectedOrderId(null);
     setPaymentMethod("");
@@ -102,9 +133,140 @@ const PDV = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Ponto de Venda</h1>
-        <p className="text-sm text-muted-foreground">Fechamento de comandas e pagamentos</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Ponto de Venda</h1>
+          <p className="text-sm text-muted-foreground">Fechamento de comandas e pagamentos</p>
+        </div>
+        <Dialog open={showReport} onOpenChange={setShowReport}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Relatório do Dia
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Relatório de Vendas — {new Date().toLocaleDateString("pt-BR")}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* Summary */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Total Vendas</p>
+                    <p className="font-heading text-xl font-bold text-primary">R$ {totalToday.toFixed(2)}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Nº de Vendas</p>
+                    <p className="font-heading text-xl font-bold">{closedToday.length}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Ticket Médio</p>
+                    <p className="font-heading text-xl font-bold">
+                      R$ {closedToday.length > 0 ? (totalToday / closedToday.length).toFixed(2) : "0.00"}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* By payment method */}
+              <div>
+                <h3 className="font-heading font-semibold mb-3">Por Forma de Pagamento</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(byPaymentMethod).map(([method, total]) => (
+                    <div key={method} className="flex items-center justify-between rounded-lg border p-3">
+                      <span className="text-sm font-medium">{paymentLabels[method] || method}</span>
+                      <span className="font-heading font-semibold">R$ {total.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* By source */}
+              <div>
+                <h3 className="font-heading font-semibold mb-3">Por Origem</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.entries(bySource).map(([source, total]) => (
+                    <div key={source} className="flex items-center justify-between rounded-lg border p-3">
+                      <span className="text-sm font-medium">{sourceLabels[source] || source}</span>
+                      <span className="font-heading font-semibold">R$ {total.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Top products */}
+              {topProducts.length > 0 && (
+                <div>
+                  <h3 className="font-heading font-semibold mb-3">Produtos Mais Vendidos</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Produto</TableHead>
+                        <TableHead className="text-center">Qtd</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topProducts.map((p, i) => (
+                        <TableRow key={i}>
+                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="text-center">{p.qty}</TableCell>
+                          <TableCell className="text-right">R$ {p.total.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+
+              {/* Detailed orders */}
+              {closedToday.length > 0 && (
+                <div>
+                  <h3 className="font-heading font-semibold mb-3">Vendas Detalhadas</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Origem</TableHead>
+                        <TableHead>Hora</TableHead>
+                        <TableHead>Pgto</TableHead>
+                        <TableHead>Itens</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {closedToday.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-medium">{order.sourceLabel}</TableCell>
+                          <TableCell>
+                            {order.closedAt
+                              ? new Date(order.closedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+                              : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {paymentLabels[order.paymentMethod || ""] || order.paymentMethod}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{order.items.length}</TableCell>
+                          <TableCell className="text-right font-semibold">R$ {order.total.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Summary */}
@@ -123,7 +285,7 @@ const PDV = () => {
         <Card>
           <CardContent className="flex items-center gap-4 p-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <Globe className="h-6 w-6 text-primary" />
+              <Monitor className="h-6 w-6 text-primary" />
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Comandas Abertas</p>

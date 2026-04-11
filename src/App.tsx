@@ -13,6 +13,7 @@ import Estoque from "./pages/Estoque";
 import Financeiro from "./pages/Financeiro";
 import Vouchers from "./pages/Vouchers";
 import Mesas from "./pages/Mesas";
+import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,11 +33,12 @@ const AppRoutes = () => {
       <Route path="/login" element={user ? <Navigate to="/" /> : <Login />} />
       <Route path="/" element={<ProtectedRoute adminOnly><Index /></ProtectedRoute>} />
       <Route path="/pdv" element={<ProtectedRoute><PDV /></ProtectedRoute>} />
-      <Route path="/computadores" element={<ProtectedRoute adminOnly><Computadores /></ProtectedRoute>} />
+      <Route path="/computadores" element={<ProtectedRoute><Computadores /></ProtectedRoute>} />
+      <Route path="/mesas" element={<ProtectedRoute><Mesas /></ProtectedRoute>} />
       <Route path="/estoque" element={<ProtectedRoute adminOnly><Estoque /></ProtectedRoute>} />
       <Route path="/financeiro" element={<ProtectedRoute adminOnly><Financeiro /></ProtectedRoute>} />
       <Route path="/vouchers" element={<ProtectedRoute adminOnly><Vouchers /></ProtectedRoute>} />
-      <Route path="/mesas" element={<ProtectedRoute><Mesas /></ProtectedRoute>} />
+      <Route path="/usuarios" element={<ProtectedRoute adminOnly><Usuarios /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

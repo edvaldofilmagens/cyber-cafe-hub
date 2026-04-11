@@ -8,6 +8,7 @@ import {
   LogOut,
   Wifi,
   UtensilsCrossed,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -21,11 +22,13 @@ const adminLinks = [
   { to: "/estoque", icon: Package, label: "Estoque" },
   { to: "/financeiro", icon: Wallet, label: "Financeiro" },
   { to: "/vouchers", icon: Ticket, label: "Vouchers" },
+  { to: "/usuarios", icon: Users, label: "Usuários" },
 ];
 
 const funcLinks = [
   { to: "/pdv", icon: ShoppingCart, label: "PDV" },
   { to: "/mesas", icon: UtensilsCrossed, label: "Mesas" },
+  { to: "/computadores", icon: Monitor, label: "Computadores" },
 ];
 
 export const AppSidebar = () => {
