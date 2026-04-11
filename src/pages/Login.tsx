@@ -8,14 +8,17 @@ import { Wifi } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const Login = () => {
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = login(name, password);
+    setLoading(true);
+    const ok = await login(email, password);
+    setLoading(false);
     if (!ok) {
       toast({ title: "Erro", description: "Usuário ou senha inválidos", variant: "destructive" });
     }
@@ -34,12 +37,12 @@ const Login = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Usuário</Label>
+              <Label htmlFor="email">Email ou Usuário</Label>
               <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nome de usuário"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@conectaremigio.com"
               />
             </div>
             <div className="space-y-2">
@@ -52,8 +55,8 @@ const Login = () => {
                 placeholder="••••••••"
               />
             </div>
-            <Button type="submit" className="w-full">
-              Entrar
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Entrando..." : "Entrar"}
             </Button>
             <p className="text-xs text-center text-muted-foreground mt-4">
               Demo: Admin / admin123 — Funcionário / func123

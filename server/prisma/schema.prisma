@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  funcionario
+}
+
+enum OrderSource {
+  mesa
+  computador
+  balcao
+  mobile
+}
+
+enum OrderStatus {
+  aberta
+  aguardando_pagamento
+  paga
+  cancelada
+}
+
+enum PaymentMethod {
+  dinheiro
+  pix
+  cartao_credito
+  cartao_debito
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(funcionario)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders Order[] @relation("ClosedByUser")
+
+  @@map("users")
+}
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  name      String
+  price     Float
+  category  String
+  icon      String   @default("Package")
+  active    Boolean  @default(true)
+  stock     Int      @default(0)
+  minStock  Int      @default(0) @map("min_stock")
+  costPrice Float    @default(0) @map("cost_price")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id                 String        @id @default(uuid())
+  source             OrderSource
+  sourceId           Int           @map("source_id")
+  sourceLabel        String        @map("source_label")
+  status             OrderStatus   @default(aberta)
+  total              Float         @default(0)
+  createdAt          DateTime      @default(now()) @map("created_at")
+  closedAt           DateTime?     @map("closed_at")
+  paymentMethod      PaymentMethod? @map("payment_method")
+  sessionMinutes     Int?          @map("session_minutes")
+  sessionStartedAt   DateTime?     @map("session_started_at")
+  sessionPricePerHour Float?       @map("session_price_per_hour")
+
+  closedById String? @map("closed_by_id")
+  closedBy   User?   @relation("ClosedByUser", fields: [closedById], references: [id])
+
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String @map("order_id")
+  productId Int    @map("product_id")
+  name      String
+  price     Float
+  qty       Int
+  category  String
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
