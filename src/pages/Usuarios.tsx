@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,103 +10,82 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Users, Plus, Shield, ShieldCheck, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UserRole } from "@/contexts/AuthContext";
+import { api } from "@/services/api";
 
-interface LocalUser {
+interface ApiUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: string;
   active: boolean;
   createdAt: string;
 }
 
-const STORAGE_KEY = "conecta_users";
-
-function loadUsers(): LocalUser[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-
-  // Seed defaults
-  const defaults: LocalUser[] = [
-    { id: "1", name: "Admin", email: "admin@conectaremigio.com", role: "admin", active: true, createdAt: new Date().toISOString() },
-    { id: "2", name: "Funcionário", email: "funcionario@conectaremigio.com", role: "funcionario", active: true, createdAt: new Date().toISOString() },
-  ];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
-  return defaults;
-}
-
-function saveUsers(users: LocalUser[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
 const Usuarios = () => {
-  const [users, setUsers] = useState<LocalUser[]>(loadUsers());
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "funcionario" as UserRole });
   const { toast } = useToast();
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const data = await api.getUsers();
+      setUsers(data);
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível carregar os usuários", variant: "destructive" });
+    }
+  }, [toast]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const resetForm = () => {
     setForm({ name: "", email: "", password: "", role: "funcionario" });
     setEditId(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.email) {
       toast({ title: "Erro", description: "Nome e email são obrigatórios", variant: "destructive" });
       return;
     }
 
-    let updated: LocalUser[];
-
-    if (editId) {
-      updated = users.map((u) =>
-        u.id === editId
-          ? { ...u, name: form.name, email: form.email, role: form.role }
-          : u
-      );
-      toast({ title: "Usuário atualizado" });
-    } else {
-      if (!form.password) {
-        toast({ title: "Erro", description: "Senha é obrigatória para novo usuário", variant: "destructive" });
-        return;
+    try {
+      if (editId) {
+        await api.updateUser(editId, { name: form.name, email: form.email, role: form.role });
+        toast({ title: "Usuário atualizado" });
+      } else {
+        if (!form.password) {
+          toast({ title: "Erro", description: "Senha é obrigatória para novo usuário", variant: "destructive" });
+          return;
+        }
+        await api.createUser({ name: form.name, email: form.email, password: form.password, role: form.role });
+        toast({ title: "Usuário criado com sucesso" });
       }
-      const exists = users.find((u) => u.email === form.email);
-      if (exists) {
-        toast({ title: "Erro", description: "Email já cadastrado", variant: "destructive" });
-        return;
-      }
-      const newUser: LocalUser = {
-        id: Date.now().toString(),
-        name: form.name,
-        email: form.email,
-        role: form.role,
-        active: true,
-        createdAt: new Date().toISOString(),
-      };
-      updated = [...users, newUser];
-      toast({ title: "Usuário criado com sucesso" });
+      await fetchUsers();
+      setDialogOpen(false);
+      resetForm();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Falha ao salvar", variant: "destructive" });
     }
-
-    saveUsers(updated);
-    setUsers(updated);
-    setDialogOpen(false);
-    resetForm();
   };
 
-  const handleEdit = (user: LocalUser) => {
-    setForm({ name: user.name, email: user.email, password: "", role: user.role });
+  const handleEdit = (user: ApiUser) => {
+    setForm({ name: user.name, email: user.email, password: "", role: user.role as UserRole });
     setEditId(user.id);
     setDialogOpen(true);
   };
 
-  const handleToggleActive = (id: string) => {
-    const updated = users.map((u) => (u.id === id ? { ...u, active: !u.active } : u));
-    saveUsers(updated);
-    setUsers(updated);
-    toast({ title: "Status atualizado" });
+  const handleToggleActive = async (id: string) => {
+    const user = users.find((u) => u.id === id);
+    if (!user) return;
+    try {
+      await api.updateUser(id, { active: !user.active });
+      await fetchUsers();
+      toast({ title: "Status atualizado" });
+    } catch {
+      toast({ title: "Erro", description: "Falha ao atualizar status", variant: "destructive" });
+    }
   };
 
   return (
@@ -170,7 +149,6 @@ const Usuarios = () => {
         </Dialog>
       </div>
 
-      {/* Permissions info */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center gap-4 p-5">
@@ -200,7 +178,6 @@ const Usuarios = () => {
         </Card>
       </div>
 
-      {/* Users table */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
