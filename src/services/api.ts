@@ -1,8 +1,8 @@
-// API client for Conecta Remígio backend
-// When running with backend: set VITE_API_URL in .env
-// Without backend: falls back to localStorage via orderService
+const API_URL = import.meta.env.VITE_API_URL;
 
-const API_URL = import.meta.env.VITE_API_URL || "";
+if (!API_URL) {
+  console.error("VITE_API_URL is not set. Backend requests will fail.");
+}
 
 function getToken(): string | null {
   return localStorage.getItem("conecta_token");
@@ -110,8 +110,6 @@ export const api = {
     }>(`/api/reports/daily${qs}`);
   },
 
-  // Helpers
-  isConnected: () => !!API_URL,
   setToken: (token: string) => localStorage.setItem("conecta_token", token),
   clearToken: () => localStorage.removeItem("conecta_token"),
 };

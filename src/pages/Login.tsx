@@ -58,9 +58,6 @@ const Login = () => {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>
-            <p className="text-xs text-center text-muted-foreground mt-4">
-              Demo: Admin / admin123 — Funcionário / func123
-            </p>
           </form>
         </CardContent>
       </Card>
