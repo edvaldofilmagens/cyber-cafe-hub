@@ -5,6 +5,8 @@ import userRoutes from "./routes/users";
 import orderRoutes from "./routes/orders";
 import productRoutes from "./routes/products";
 import reportRoutes from "./routes/reports";
+import accountRoutes from "./routes/accounts";
+import voucherRoutes from "./routes/vouchers";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +20,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/accounts", accountRoutes);
+app.use("/api/vouchers", voucherRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

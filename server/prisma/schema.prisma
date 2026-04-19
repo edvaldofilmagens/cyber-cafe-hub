@@ -33,6 +33,24 @@ enum PaymentMethod {
   cartao_debito
 }
 
+enum AccountType {
+  pagar
+  receber
+}
+
+enum AccountStatus {
+  pendente
+  pago
+  vencido
+}
+
+enum VoucherStatus {
+  disponivel
+  ativo
+  esgotado
+  expirado
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -67,18 +85,18 @@ model Product {
 }
 
 model Order {
-  id                 String        @id @default(uuid())
-  source             OrderSource
-  sourceId           Int           @map("source_id")
-  sourceLabel        String        @map("source_label")
-  status             OrderStatus   @default(aberta)
-  total              Float         @default(0)
-  createdAt          DateTime      @default(now()) @map("created_at")
-  closedAt           DateTime?     @map("closed_at")
-  paymentMethod      PaymentMethod? @map("payment_method")
-  sessionMinutes     Int?          @map("session_minutes")
-  sessionStartedAt   DateTime?     @map("session_started_at")
-  sessionPricePerHour Float?       @map("session_price_per_hour")
+  id                  String         @id @default(uuid())
+  source              OrderSource
+  sourceId            Int            @map("source_id")
+  sourceLabel         String         @map("source_label")
+  status              OrderStatus    @default(aberta)
+  total               Float          @default(0)
+  createdAt           DateTime       @default(now()) @map("created_at")
+  closedAt            DateTime?      @map("closed_at")
+  paymentMethod       PaymentMethod? @map("payment_method")
+  sessionMinutes      Int?           @map("session_minutes")
+  sessionStartedAt    DateTime?      @map("session_started_at")
+  sessionPricePerHour Float?         @map("session_price_per_hour")
 
   closedById String? @map("closed_by_id")
   closedBy   User?   @relation("ClosedByUser", fields: [closedById], references: [id])
@@ -101,4 +119,32 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
+}
+
+model Account {
+  id          Int           @id @default(autoincrement())
+  description String
+  value       Float
+  dueDate     DateTime      @map("due_date")
+  status      AccountStatus @default(pendente)
+  type        AccountType
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@map("accounts")
+}
+
+model Voucher {
+  id        Int           @id @default(autoincrement())
+  code      String        @unique
+  hours     Float
+  hoursUsed Float         @default(0) @map("hours_used")
+  price     Float
+  status    VoucherStatus @default(disponivel)
+  client    String?
+  usedOn    String[]      @default([]) @map("used_on")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@map("vouchers")
 }
