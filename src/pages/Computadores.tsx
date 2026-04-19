@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Monitor, Play, Square, Clock, User, CreditCard, Plus } from "lucide-react";
+import { Monitor, Play, Clock, User, CreditCard, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
 import { ProductGrid } from "@/components/ProductGrid";
 import { OrderItemsList } from "@/components/OrderItemsList";
-import { Product, Order, TIME_OPTIONS, COMPUTER_PRICE_PER_HOUR } from "@/types/order";
+import { Product, TIME_OPTIONS, COMPUTER_PRICE_PER_HOUR } from "@/types/order";
+import { ApiOrder } from "@/services/api";
 
 const NUM_COMPUTERS = 2;
 
@@ -26,15 +27,13 @@ const Computadores = () => {
   const { toast } = useToast();
   const orders = useOrders();
 
-  // Tick every 30s to update elapsed time
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
 
-  const getPcOrder = (pcId: number): Order | undefined => {
-    return orders.getBySource("computador", pcId);
-  };
+  const getPcOrder = (pcId: number): ApiOrder | undefined =>
+    orders.getBySource("computador", pcId);
 
   const getPcStatus = (pcId: number): "livre" | "em_uso" | "aguardando_pagamento" => {
     const order = getPcOrder(pcId);
@@ -43,16 +42,15 @@ const Computadores = () => {
     return "em_uso";
   };
 
-  const getElapsedMinutes = (order: Order): number => {
+  const getElapsedMinutes = (order: ApiOrder): number => {
     if (!order.sessionStartedAt) return 0;
     return Math.floor((now - new Date(order.sessionStartedAt).getTime()) / 60000);
   };
 
-  const getSessionCost = (order: Order): number => {
+  const getSessionCost = (order: ApiOrder): number => {
     if (order.sessionMinutes && order.sessionPricePerHour) {
       return (order.sessionMinutes / 60) * order.sessionPricePerHour;
     }
-    // Free mode: calculate by elapsed
     if (order.sessionMinutes === 0 && order.sessionStartedAt) {
       const elapsed = getElapsedMinutes(order);
       return (elapsed / 60) * COMPUTER_PRICE_PER_HOUR;
@@ -60,34 +58,38 @@ const Computadores = () => {
     return 0;
   };
 
-  const startSession = () => {
+  const startSession = async () => {
     if (!selectedPc || !userName || !selectedTime) return;
     const mins = parseInt(selectedTime);
     const option = TIME_OPTIONS.find((t) => t.value === mins);
 
-    orders.create({
-      source: "computador",
-      sourceId: selectedPc,
-      sourceLabel: `PC-0${selectedPc} (${userName})`,
-      sessionMinutes: mins,
-      sessionPricePerHour: option?.price ? (option.price / (mins / 60)) : COMPUTER_PRICE_PER_HOUR,
-    });
+    try {
+      await orders.create({
+        source: "computador",
+        sourceId: selectedPc,
+        sourceLabel: `PC-0${selectedPc} (${userName})`,
+        sessionMinutes: mins,
+        sessionPricePerHour: option?.price && mins > 0 ? option.price / (mins / 60) : COMPUTER_PRICE_PER_HOUR,
+      });
 
-    toast({
-      title: "Sessão iniciada",
-      description: `${userName} no PC-0${selectedPc} — ${mins > 0 ? `${mins}min` : "Livre"}`,
-    });
-    setUserName("");
-    setSelectedTime("");
-    setDialogOpen(false);
-    setSelectedPc(null);
+      toast({
+        title: "Sessão iniciada",
+        description: `${userName} no PC-0${selectedPc} — ${mins > 0 ? `${mins}min` : "Livre"}`,
+      });
+      setUserName("");
+      setSelectedTime("");
+      setDialogOpen(false);
+      setSelectedPc(null);
+    } catch (e) {
+      toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
-  const handleAddProduct = (product: Product) => {
+  const handleAddProduct = async (product: Product) => {
     if (selectedPc === null) return;
     const order = getPcOrder(selectedPc);
     if (!order) return;
-    orders.addItem(order.id, {
+    await orders.addItem(order.id, {
       productId: product.id,
       name: product.name,
       price: product.price,
@@ -96,10 +98,10 @@ const Computadores = () => {
     });
   };
 
-  const handleSendToPayment = (pcId: number) => {
+  const handleSendToPayment = async (pcId: number) => {
     const order = getPcOrder(pcId);
     if (!order) return;
-    orders.sendToPayment(order.id);
+    await orders.sendToPayment(order.id);
     toast({
       title: `PC-0${pcId} enviado para pagamento`,
       description: `Sessão encerrada — Aguardando no PDV`,
@@ -241,7 +243,6 @@ const Computadores = () => {
         })}
       </div>
 
-      {/* Product panel for adding consumption */}
       {selectedPc !== null && showProducts && getPcStatus(selectedPc) === "em_uso" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
@@ -278,7 +279,6 @@ const Computadores = () => {
         </div>
       )}
 
-      {/* View order details */}
       {selectedPc !== null && !showProducts && getPcOrder(selectedPc) && (
         <Card className="max-w-md">
           <CardHeader className="pb-3">

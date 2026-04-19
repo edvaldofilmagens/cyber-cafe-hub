@@ -88,6 +88,18 @@ pm2 start dist/index.js --name conecta-api
 ### Reports
 - `GET /api/reports/daily?date=2026-04-11` — Relatório diário
 
+### Accounts (Financeiro — admin only)
+- `GET /api/accounts` — Listar contas a pagar/receber
+- `POST /api/accounts` — Criar conta
+- `PUT /api/accounts/:id` — Atualizar (incluindo status)
+- `DELETE /api/accounts/:id` — Remover
+
+### Vouchers (admin only)
+- `GET /api/vouchers` — Listar vouchers
+- `POST /api/vouchers` — Gerar N vouchers `{ hours, price, qty }`
+- `PUT /api/vouchers/:id` — Atualizar
+- `DELETE /api/vouchers/:id` — Remover
+
 ## Conectar Frontend
 
 No frontend React, crie um arquivo `.env`:
@@ -96,7 +108,16 @@ No frontend React, crie um arquivo `.env`:
 VITE_API_URL=http://seu-servidor:3001
 ```
 
-Sem essa variável, o frontend usa localStorage como fallback.
+⚠️ **Sem essa variável, o frontend NÃO funciona** (não há mais fallback de localStorage).
+
+## Atualizando o schema
+
+Sempre que `schema.prisma` mudar, rode:
+
+```bash
+npx prisma migrate dev --name nome-da-mudanca
+npx prisma generate
+```
 
 ## Permissões
 

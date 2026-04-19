@@ -28,7 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
 import { OrderItemsList } from "@/components/OrderItemsList";
-import { Order, PaymentMethod } from "@/types/order";
+import { PaymentMethod } from "@/types/order";
 import { printReceipt } from "@/utils/printReceipt";
 
 const sourceIcons: Record<string, React.ElementType> = {
@@ -96,28 +96,36 @@ const PDV = () => {
     ? [...readyOrders, ...openOrders].find((o) => o.id === selectedOrderId) ?? null
     : null;
 
-  const handleFinalize = () => {
+  const handleFinalize = async () => {
     if (!selectedOrder || !paymentMethod) return;
     const pm = paymentMethod as PaymentMethod;
-    orderHook.finalize(selectedOrder.id, pm);
-    printReceipt({
-      items: selectedOrder.items,
-      total: selectedOrder.total,
-      mesa: selectedOrder.source === "mesa" ? selectedOrder.sourceId : undefined,
-    });
-    toast({
-      title: "Venda finalizada!",
-      description: `${selectedOrder.sourceLabel} — R$ ${selectedOrder.total.toFixed(2)} (${paymentLabels[pm]})`,
-    });
-    setSelectedOrderId(null);
-    setPaymentMethod("");
+    try {
+      await orderHook.finalize(selectedOrder.id, pm);
+      printReceipt({
+        items: selectedOrder.items,
+        total: selectedOrder.total,
+        mesa: selectedOrder.source === "mesa" ? selectedOrder.sourceId : undefined,
+      });
+      toast({
+        title: "Venda finalizada!",
+        description: `${selectedOrder.sourceLabel} — R$ ${selectedOrder.total.toFixed(2)} (${paymentLabels[pm]})`,
+      });
+      setSelectedOrderId(null);
+      setPaymentMethod("");
+    } catch (e) {
+      toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (!selectedOrder) return;
-    orderHook.cancel(selectedOrder.id);
-    toast({ title: "Comanda cancelada", description: selectedOrder.sourceLabel });
-    setSelectedOrderId(null);
+    try {
+      await orderHook.cancel(selectedOrder.id);
+      toast({ title: "Comanda cancelada", description: selectedOrder.sourceLabel });
+      setSelectedOrderId(null);
+    } catch (e) {
+      toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
   const handlePrint = () => {

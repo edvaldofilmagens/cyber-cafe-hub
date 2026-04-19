@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Coffee, Sandwich, Wifi } from "lucide-react";
-import { Product, PRODUCTS, PRODUCT_CATEGORIES } from "@/types/order";
+import { Search, Coffee, Sandwich, Wifi, Package, Loader2 } from "lucide-react";
+import { Product, PRODUCT_CATEGORIES } from "@/types/order";
+import { useProducts } from "@/hooks/useProducts";
 
 const iconMap: Record<string, React.ElementType> = {
   Coffee,
   Sandwich,
   Wifi,
+  Package,
 };
 
 interface ProductGridProps {
@@ -17,12 +19,17 @@ interface ProductGridProps {
 export const ProductGrid = ({ onAddProduct }: ProductGridProps) => {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("Todos");
+  const { data: products = [], isLoading, error } = useProducts();
 
-  const filtered = PRODUCTS.filter((p) => {
-    const matchCat = activeCategory === "Todos" || p.category === activeCategory;
-    const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const filtered = useMemo(
+    () =>
+      products.filter((p) => {
+        const matchCat = activeCategory === "Todos" || p.category === activeCategory;
+        const matchSearch = p.name.toLowerCase().includes(search.toLowerCase());
+        return matchCat && matchSearch && p.active;
+      }),
+    [products, search, activeCategory]
+  );
 
   return (
     <div className="space-y-4">
@@ -50,13 +57,26 @@ export const ProductGrid = ({ onAddProduct }: ProductGridProps) => {
         </div>
       </div>
 
+      {isLoading && (
+        <div className="flex items-center justify-center py-10 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin mr-2" /> Carregando produtos...
+        </div>
+      )}
+      {error && (
+        <p className="text-sm text-destructive text-center py-6">
+          Erro ao carregar produtos. Verifique a conexão com a API.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {filtered.map((p) => {
-          const Icon = iconMap[p.icon] || Coffee;
+          const Icon = iconMap[p.icon] || Package;
           return (
             <button
               key={p.id}
-              onClick={() => onAddProduct(p)}
+              onClick={() =>
+                onAddProduct({ id: p.id, name: p.name, price: p.price, category: p.category, icon: p.icon })
+              }
               className="flex flex-col items-center gap-2 rounded-xl border bg-card p-4 text-card-foreground transition-all hover:border-primary hover:shadow-md active:scale-95"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
