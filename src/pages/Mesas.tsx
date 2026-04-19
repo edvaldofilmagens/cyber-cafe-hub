@@ -2,12 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { UtensilsCrossed, Printer, X, CreditCard } from "lucide-react";
+import { UtensilsCrossed, Printer, X, CreditCard, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useOrders } from "@/hooks/useOrders";
 import { ProductGrid } from "@/components/ProductGrid";
 import { OrderItemsList } from "@/components/OrderItemsList";
-import { Product, Order } from "@/types/order";
+import { Product } from "@/types/order";
+import { ApiOrder } from "@/services/api";
 import { printReceipt } from "@/utils/printReceipt";
 
 const NUM_MESAS = 4;
@@ -17,9 +18,8 @@ const Mesas = () => {
   const { toast } = useToast();
   const orders = useOrders();
 
-  const getMesaOrder = (mesaId: number): Order | undefined => {
-    return orders.getBySource("mesa", mesaId);
-  };
+  const getMesaOrder = (mesaId: number): ApiOrder | undefined =>
+    orders.getBySource("mesa", mesaId);
 
   const getMesaStatus = (mesaId: number): "livre" | "ocupada" | "aguardando_pagamento" => {
     const order = getMesaOrder(mesaId);
@@ -28,55 +28,68 @@ const Mesas = () => {
     return "ocupada";
   };
 
-  const handleSelectMesa = (mesaId: number) => {
+  const handleSelectMesa = async (mesaId: number) => {
     const status = getMesaStatus(mesaId);
     if (status === "livre") {
-      orders.create({
-        source: "mesa",
-        sourceId: mesaId,
-        sourceLabel: `Mesa ${mesaId}`,
-      });
-      toast({ title: `Mesa ${mesaId} aberta`, description: "Comanda criada. Adicione produtos." });
+      try {
+        await orders.create({
+          source: "mesa",
+          sourceId: mesaId,
+          sourceLabel: `Mesa ${mesaId}`,
+        });
+        toast({ title: `Mesa ${mesaId} aberta`, description: "Comanda criada. Adicione produtos." });
+      } catch (e) {
+        toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+        return;
+      }
     }
     setSelectedMesa(mesaId);
   };
 
-  const handleAddProduct = (product: Product) => {
+  const handleAddProduct = async (product: Product) => {
     if (selectedMesa === null) return;
     const order = getMesaOrder(selectedMesa);
     if (!order) return;
-    orders.addItem(order.id, {
-      productId: product.id,
-      name: product.name,
-      price: product.price,
-      qty: 1,
-      category: product.category,
-    });
+    try {
+      await orders.addItem(order.id, {
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        qty: 1,
+        category: product.category,
+      });
+    } catch (e) {
+      toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
-  const handleUpdateQty = (productId: number, delta: number) => {
+  const handleUpdateQty = async (productId: number, delta: number) => {
     if (selectedMesa === null) return;
     const order = getMesaOrder(selectedMesa);
     if (!order) return;
-    orders.updateItemQty(order.id, productId, delta);
+    await orders.updateItemQty(order.id, productId, delta);
   };
 
-  const handleRemoveItem = (productId: number) => {
+  const handleRemoveItem = async (productId: number) => {
     if (selectedMesa === null) return;
     const order = getMesaOrder(selectedMesa);
     if (!order) return;
-    orders.removeItem(order.id, productId);
+    await orders.removeItem(order.id, productId);
   };
 
-  const handleSendToPayment = (mesaId: number) => {
+  const handleSendToPayment = async (mesaId: number) => {
     const order = getMesaOrder(mesaId);
     if (!order || order.items.length === 0) return;
-    orders.sendToPayment(order.id);
-    toast({
-      title: `Mesa ${mesaId} enviada para pagamento`,
-      description: `Total: R$ ${order.total.toFixed(2)} — Aguardando no PDV`,
-    });
-    setSelectedMesa(null);
+    try {
+      await orders.sendToPayment(order.id);
+      toast({
+        title: `Mesa ${mesaId} enviada para pagamento`,
+        description: `Total: R$ ${order.total.toFixed(2)} — Aguardando no PDV`,
+      });
+      setSelectedMesa(null);
+    } catch (e) {
+      toast({ title: "Erro", description: (e as Error).message, variant: "destructive" });
+    }
   };
 
   const handlePrint = (mesaId: number) => {
@@ -106,12 +119,14 @@ const Mesas = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-bold">Mesas</h1>
-        <p className="text-sm text-muted-foreground">Gerencie comandas por mesa — Centro de consumo principal</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Mesas</h1>
+          <p className="text-sm text-muted-foreground">Gerencie comandas por mesa — Centro de consumo principal</p>
+        </div>
+        {orders.isLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
       </div>
 
-      {/* Grid de mesas */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {Array.from({ length: NUM_MESAS }, (_, i) => i + 1).map((mesaId) => {
           const status = getMesaStatus(mesaId);
@@ -157,17 +172,14 @@ const Mesas = () => {
         })}
       </div>
 
-      {/* Comanda da mesa selecionada */}
       {selectedOrder && selectedStatus !== "livre" && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Produtos */}
           {selectedStatus === "ocupada" && (
             <div className="lg:col-span-2">
               <ProductGrid onAddProduct={handleAddProduct} />
             </div>
           )}
 
-          {/* Comanda */}
           <Card className={`h-fit sticky top-6 ${selectedStatus !== "ocupada" ? "lg:col-span-3 max-w-md" : ""}`}>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center justify-between text-lg">
